@@ -1,37 +1,43 @@
 import java.util.*;
 
 /**
- * UseCase6RoomAllocationService
+ * UseCase9ErrorHandlingValidation
  *
- * Demonstrates booking confirmation, room allocation,
- * uniqueness enforcement, and inventory synchronization.
- *
+ * Demonstrates structured input validation and error handling
+ * for booking requests. Prevents invalid room types and negative inventory.
  * @author YourName
- * @version 6.1
+ * @version 9.1
  */
-class UseCase6RoomAllocationService {
+class UseCase9ErrorHandlingValidation {
 
     public static void main(String[] args) {
 
         System.out.println("======================================");
         System.out.println(" Welcome to Book My Stay ");
-        System.out.println(" Version: 6.1 ");
+        System.out.println(" Version: 9.1 ");
         System.out.println("======================================");
 
         RoomInventory inventory = new RoomInventory();
-
-        Queue<Reservation> queue = new LinkedList<>();
-        queue.add(new Reservation("Guest1", "Single Room"));
-        queue.add(new Reservation("Guest2", "Double Room"));
-        queue.add(new Reservation("Guest3", "Single Room"));
-        queue.add(new Reservation("Guest4", "Suite Room"));
-
         BookingService bookingService = new BookingService(inventory);
 
-        System.out.println("\nProcessing Bookings:\n");
+        Queue<Reservation> bookingQueue = new LinkedList<>();
 
-        while (!queue.isEmpty()) {
-            bookingService.processBooking(queue.poll());
+        // Simulating some guest requests (one invalid room type)
+        bookingQueue.add(new Reservation("Guest1", "Single Room"));
+        bookingQueue.add(new Reservation("Guest2", "Penthouse")); // invalid
+        bookingQueue.add(new Reservation("Guest3", "Double Room"));
+        bookingQueue.add(new Reservation("Guest4", "Suite Room"));
+        bookingQueue.add(new Reservation("Guest5", "Single Room"));
+
+        System.out.println("\nProcessing Bookings with Validation:\n");
+
+        while (!bookingQueue.isEmpty()) {
+            Reservation request = bookingQueue.poll();
+            try {
+                bookingService.processBooking(request);
+            } catch (InvalidBookingException e) {
+                System.out.println("ERROR: " + e.getMessage());
+            }
         }
 
         System.out.println("\nFinal Inventory:");
@@ -40,54 +46,65 @@ class UseCase6RoomAllocationService {
 }
 
 /**
- * BookingService handles allocation and confirmation
+ * Custom Exception for invalid booking scenarios
+ */
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
+
+/**
+ * BookingService handles allocation, confirmation, and error handling
  */
 class BookingService {
 
     private RoomInventory inventory;
-
     private Set<String> allocatedRoomIds = new HashSet<>();
-    private Map<String, Set<String>> allocationMap = new HashMap<>();
-
+    private List<Reservation> bookingHistory = new ArrayList<>();
     private int counter = 1;
 
     public BookingService(RoomInventory inventory) {
         this.inventory = inventory;
     }
 
-    public void processBooking(Reservation request) {
+    public void processBooking(Reservation request) throws InvalidBookingException {
 
         String type = request.getRoomType();
 
-        if (inventory.getAvailability(type) > 0) {
-
-            // ✅ SAFE UNIQUE ID GENERATION
-            String roomId;
-            do {
-                roomId = generateRoomId(type);
-            } while (allocatedRoomIds.contains(roomId));
-
-            allocatedRoomIds.add(roomId);
-
-            allocationMap.putIfAbsent(type, new HashSet<>());
-            allocationMap.get(type).add(roomId);
-
-            inventory.updateRoom(type, -1);
-
-            System.out.println("Booking CONFIRMED for " + request.getGuestName()
-                    + " | Room Type: " + type
-                    + " | Room ID: " + roomId);
-
-        } else {
-            System.out.println("Booking FAILED for " + request.getGuestName()
-                    + " | Room Type: " + type + " (Not Available)");
+        // Validate room type
+        if (!inventory.isValidRoomType(type)) {
+            throw new InvalidBookingException("Invalid room type '" + type + "' requested by " + request.getGuestName());
         }
+
+        // Validate availability
+        int available = inventory.getAvailability(type);
+        if (available <= 0) {
+            throw new InvalidBookingException("No available rooms for type '" + type + "' for " + request.getGuestName());
+        }
+
+        // Generate unique room ID safely
+        String roomId;
+        do {
+            roomId = type.replace(" ", "").substring(0, 2).toUpperCase() + counter++;
+        } while (allocatedRoomIds.contains(roomId));
+
+        allocatedRoomIds.add(roomId);
+
+        // Update inventory immediately
+        inventory.updateRoom(type, -1);
+
+        // Store booking in history
+        request.setRoomId(roomId);
+        bookingHistory.add(request);
+
+        System.out.println("Booking CONFIRMED for " + request.getGuestName()
+                + " | Room Type: " + type
+                + " | Room ID: " + roomId);
     }
 
-    // Separate method for ID generation
-    private String generateRoomId(String type) {
-        String prefix = type.replace(" ", "").substring(0, 2).toUpperCase();
-        return prefix + (counter++);
+    public List<Reservation> getBookingHistory() {
+        return bookingHistory;
     }
 }
 
@@ -104,12 +121,20 @@ class RoomInventory {
         inventory.put("Suite Room", 1);
     }
 
+    public boolean isValidRoomType(String type) {
+        return inventory.containsKey(type);
+    }
+
     public int getAvailability(String type) {
         return inventory.getOrDefault(type, 0);
     }
 
     public void updateRoom(String type, int change) {
-        inventory.put(type, getAvailability(type) + change);
+        int newCount = getAvailability(type) + change;
+        if (newCount < 0) {
+            throw new IllegalStateException("Inventory cannot be negative for " + type);
+        }
+        inventory.put(type, newCount);
     }
 
     public void displayInventory() {
@@ -126,6 +151,7 @@ class Reservation {
 
     private String guestName;
     private String roomType;
+    private String roomId;
 
     public Reservation(String guestName, String roomType) {
         this.guestName = guestName;
@@ -138,5 +164,13 @@ class Reservation {
 
     public String getRoomType() {
         return roomType;
+    }
+
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(String roomId) {
+        this.roomId = roomId;
     }
 }
