@@ -1,128 +1,58 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
- * UseCase4RoomSearch
+ * UseCase5BookingRequestQueue
  *
- * Demonstrates read-only room search using centralized inventory.
- * Displays only available rooms without modifying system state.
+ * Demonstrates booking request intake using Queue (FIFO).
+ * Ensures fair ordering of booking requests without modifying inventory.
  *
  * @author YourName
- * @version 4.1
+ * @version 5.1
  */
-class UseCase4RoomSearch {
+class UseCase5BookingRequestQueue {
 
     public static void main(String[] args) {
 
         System.out.println("======================================");
         System.out.println(" Welcome to Book My Stay ");
-        System.out.println(" Version: 4.1 ");
+        System.out.println(" Version: 5.1 ");
         System.out.println("======================================");
 
-        // Initialize inventory
-        RoomInventory inventory = new RoomInventory();
+        // Create booking queue
+        Queue<Reservation> bookingQueue = new LinkedList<>();
 
-        // Initialize room objects (domain model)
-        Map<String, Room> rooms = new HashMap<>();
-        rooms.put("Single Room", new SingleRoom(1, 200, 1000));
-        rooms.put("Double Room", new DoubleRoom(2, 350, 1800));
-        rooms.put("Suite Room", new SuiteRoom(3, 500, 3000));
+        // Simulating guest booking requests
+        bookingQueue.add(new Reservation("Guest1", "Single Room"));
+        bookingQueue.add(new Reservation("Guest2", "Double Room"));
+        bookingQueue.add(new Reservation("Guest3", "Suite Room"));
+        bookingQueue.add(new Reservation("Guest4", "Single Room"));
 
-        // Perform search (read-only)
-        System.out.println("\nAvailable Rooms:\n");
+        System.out.println("\nBooking Requests in Queue (FIFO Order):\n");
 
-        for (String type : rooms.keySet()) {
-            int available = inventory.getAvailability(type);
-
-            // Filter unavailable rooms
-            if (available > 0) {
-                Room room = rooms.get(type);
-                room.displayDetails();
-                System.out.println("Available: " + available + "\n");
-            }
+        // Display queue without modifying it
+        for (Reservation r : bookingQueue) {
+            r.display();
         }
+
+        System.out.println("\nTotal Requests in Queue: " + bookingQueue.size());
     }
 }
 
 /**
- * Inventory class (read-only usage here)
+ * Reservation class representing a booking request
  */
-class RoomInventory {
+class Reservation {
 
-    private Map<String, Integer> inventory;
+    private String guestName;
+    private String roomType;
 
-    public RoomInventory() {
-        inventory = new HashMap<>();
-        inventory.put("Single Room", 5);
-        inventory.put("Double Room", 3);
-        inventory.put("Suite Room", 0); // intentionally unavailable
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    // Read-only access
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-}
-
-/**
- * Abstract Room class
- */
-abstract class Room {
-    private int beds;
-    private int size;
-    private double price;
-
-    public Room(int beds, int size, double price) {
-        this.beds = beds;
-        this.size = size;
-        this.price = price;
-    }
-
-    public void displayDetails() {
-        System.out.println("Room Type: " + getRoomType());
-        System.out.println("Beds: " + beds);
-        System.out.println("Size: " + size + " sq ft");
-        System.out.println("Price: ₹" + price);
-    }
-
-    public abstract String getRoomType();
-}
-
-/**
- * Single Room
- */
-class SingleRoom extends Room {
-    public SingleRoom(int beds, int size, double price) {
-        super(beds, size, price);
-    }
-
-    public String getRoomType() {
-        return "Single Room";
-    }
-}
-
-/**
- * Double Room
- */
-class DoubleRoom extends Room {
-    public DoubleRoom(int beds, int size, double price) {
-        super(beds, size, price);
-    }
-
-    public String getRoomType() {
-        return "Double Room";
-    }
-}
-
-/**
- * Suite Room
- */
-class SuiteRoom extends Room {
-    public SuiteRoom(int beds, int size, double price) {
-        super(beds, size, price);
-    }
-
-    public String getRoomType() {
-        return "Suite Room";
+    public void display() {
+        System.out.println("Guest: " + guestName + " | Requested: " + roomType);
     }
 }
