@@ -18,28 +18,22 @@ class UseCase6RoomAllocationService {
         System.out.println(" Version: 6.1 ");
         System.out.println("======================================");
 
-        // Initialize inventory
         RoomInventory inventory = new RoomInventory();
 
-        // Booking queue (FIFO)
         Queue<Reservation> queue = new LinkedList<>();
         queue.add(new Reservation("Guest1", "Single Room"));
         queue.add(new Reservation("Guest2", "Double Room"));
         queue.add(new Reservation("Guest3", "Single Room"));
         queue.add(new Reservation("Guest4", "Suite Room"));
 
-        // Booking service
         BookingService bookingService = new BookingService(inventory);
 
-        // Process queue
         System.out.println("\nProcessing Bookings:\n");
 
         while (!queue.isEmpty()) {
-            Reservation request = queue.poll(); // FIFO
-            bookingService.processBooking(request);
+            bookingService.processBooking(queue.poll());
         }
 
-        // Final inventory
         System.out.println("\nFinal Inventory:");
         inventory.displayInventory();
     }
@@ -52,13 +46,9 @@ class BookingService {
 
     private RoomInventory inventory;
 
-    // Track allocated room IDs (global uniqueness)
     private Set<String> allocatedRoomIds = new HashSet<>();
-
-    // Track room type → allocated room IDs
     private Map<String, Set<String>> allocationMap = new HashMap<>();
 
-    // Counter for generating unique IDs
     private int counter = 1;
 
     public BookingService(RoomInventory inventory) {
@@ -69,34 +59,35 @@ class BookingService {
 
         String type = request.getRoomType();
 
-        // Check availability
         if (inventory.getAvailability(type) > 0) {
 
-            // Generate unique room ID
-            String roomId = type.replace(" ", "").substring(0, 2).toUpperCase() + counter++;
+            // ✅ SAFE UNIQUE ID GENERATION
+            String roomId;
+            do {
+                roomId = generateRoomId(type);
+            } while (allocatedRoomIds.contains(roomId));
 
-            // Ensure uniqueness
-            if (!allocatedRoomIds.contains(roomId)) {
+            allocatedRoomIds.add(roomId);
 
-                allocatedRoomIds.add(roomId);
+            allocationMap.putIfAbsent(type, new HashSet<>());
+            allocationMap.get(type).add(roomId);
 
-                // Map room type to IDs
-                allocationMap.putIfAbsent(type, new HashSet<>());
-                allocationMap.get(type).add(roomId);
+            inventory.updateRoom(type, -1);
 
-                // Update inventory immediately
-                inventory.updateRoom(type, -1);
-
-                System.out.println("Booking CONFIRMED for " + request.getGuestName()
-                        + " | Room Type: " + type
-                        + " | Room ID: " + roomId);
-
-            }
+            System.out.println("Booking CONFIRMED for " + request.getGuestName()
+                    + " | Room Type: " + type
+                    + " | Room ID: " + roomId);
 
         } else {
             System.out.println("Booking FAILED for " + request.getGuestName()
                     + " | Room Type: " + type + " (Not Available)");
         }
+    }
+
+    // Separate method for ID generation
+    private String generateRoomId(String type) {
+        String prefix = type.replace(" ", "").substring(0, 2).toUpperCase();
+        return prefix + (counter++);
     }
 }
 
@@ -129,7 +120,7 @@ class RoomInventory {
 }
 
 /**
- * Reservation (Booking Request)
+ * Reservation class
  */
 class Reservation {
 
